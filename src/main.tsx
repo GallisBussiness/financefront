@@ -11,6 +11,7 @@ import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import '@mantine/dropzone/styles.css';
 import '@mantine/charts/styles.css';
+import '@mantine/nprogress/styles.css';
 import { PrimeReactProvider } from "primereact/api";
 
 import "primereact/resources/themes/mira/theme.css";
@@ -49,6 +50,7 @@ const pt = {
 
 
 import { createTheme, MantineProvider } from '@mantine/core';
+import { NavigationProgress } from '@mantine/nprogress';
 
 const theme = createTheme({
 
@@ -58,6 +60,7 @@ const queryClient = new QueryClient();
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <MantineProvider theme={theme}>
+    <NavigationProgress />
     <PrimeReactProvider value={{pt}}>
     <QueryClientProvider client={queryClient}>
     <AuthProvider

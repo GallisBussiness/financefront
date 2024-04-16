@@ -11,25 +11,46 @@ import {round} from "lodash";
 import { CLASSE } from "../../services/classe.service";
 import { useState } from "react";
 import { EtatEngagement } from "../../acl/Ability";
-import { format } from "date-fns";
+import { format, isWithinInterval, parseISO } from "date-fns";
 import { Toolbar } from "primereact/toolbar";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { FilterMatchMode } from "primereact/api";
-import { Divider, Progress } from "antd";
+import { Divider, Modal, Progress } from "antd";
+import { useForm } from "@mantine/form";
+import { yupResolver } from 'mantine-form-yup-resolver';
+import * as yup from 'yup';
 import { fr } from "date-fns/locale/fr";
+import { DatePickerInput } from "@mantine/dates";
 const formatNumber = (n: number) => String(n).replace(/(.)(?=(\d{3})+$)/g,'$1 ');
 
+
+const schema = yup.object().shape({
+    range: yup.array().required('Invalid range'),
+  });
+
 function Gestions() {
-    const [PRODUIT_INVESTISSEMENT,setPI] = useState([]);
-    const [CHARGE_INVESTISSEMENT,setCI] = useState([]);
-    const [PRODUIT_DE_FONCTIONNEMENT,setPF] = useState([]);
-    const [CHARGE_DE_FONCTIONNEMENT,setCF] = useState([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [PRODUITS,setProduit] = useState([]);
     const [CHARGES,setCharges] = useState([]);
     const key = 'get_budgets';
+    const form = useForm({
+        initialValues:{
+         range:[],
+        },
+        validate: yupResolver(schema),
+      });
+
+      const showModal = () => {
+        setIsModalOpen(true);
+      };
+      
+      
+      const handleCancel = () => {
+        setIsModalOpen(false);
+      };
     const budgetService = new BudgetService(); 
-    const {isLoading} = useQuery(key,() => budgetService.findAll(),{
+    const {data,isLoading} = useQuery(key,() => budgetService.findAll(),{
         onSuccess:(_) => {
         setProduit(_.produits?.map((p:any) => (
             {compte:p.souscompte.code,
@@ -51,50 +72,7 @@ function Gestions() {
               bd:p.prevision,
               realisations: p.engagements.filter((e:any) => e.etat === EtatEngagement.VALIDE || e.etat === EtatEngagement.PAYE).reduce((acc:any,cur:any) => acc + cur.montant ,0),
           } )));
-          setPI(_.produits?.filter((d:any) => d.souscompte.compte_divisionnaire.compte.classe === CLASSE.PRODUIT_INVESTISSEMENT)
-          .map((p:any) => (
-              {compte:p.souscompte.code,
-              libelle: p.souscompte.libelle,
-              prevision: p.prevision,
-              virementp: 0,
-              virementm:0,
-              autorisations:0,
-              bd:p.prevision,
-              realisations: p.versements.filter((e:any) => e.etat === EtatEngagement.VALIDE)?.reduce((acc:any,cur:any) => acc + cur.montant ,0),
-          } )));
-          setCI(_.charges?.filter((d:any) => d.souscompte.compte_divisionnaire.compte.classe === CLASSE.CHARGE_INVESTISSEMENT)
-          .map((p:any) => (
-              {compte:p.souscompte.code,
-              libelle: p.souscompte.libelle,
-              prevision: p.prevision,
-              virementp: 0,
-              virementm:0,
-              autorisations:0,
-              bd:p.prevision,
-              realisations: p.engagements.filter((e:any) => e.etat === EtatEngagement.VALIDE || e.etat === EtatEngagement.PAYE).reduce((acc:any,cur:any) => acc + cur.montant ,0),
-          } )));
-          setPF(_.produits?.filter((d:any) => d.souscompte.compte_divisionnaire.compte.classe === CLASSE.PRODUIT_DE_FONCTIONNEMENT)
-          .map((p:any) => (
-              {compte:p.souscompte.code,
-              libelle: p.souscompte.libelle,
-              prevision: p.prevision,
-              virementp: 0,
-              virementm:0,
-              autorisations:0,
-              bd:p.prevision,
-              realisations: p.versements.filter((e:any) => e.etat === EtatEngagement.VALIDE)?.reduce((acc:any,cur:any) => acc + cur.montant ,0),
-          } )));
-          setCF(_.charges?.filter((d:any) => d.souscompte.compte_divisionnaire.compte.classe === CLASSE.CHARGE_DE_FONCTIONNEMENT)
-          .map((p:any) => (
-              {compte:p.souscompte.code,
-              libelle: p.souscompte.libelle,
-              prevision: p.prevision,
-              virementp: 0,
-              virementm:0,
-              autorisations:0,
-              bd:p.prevision,
-              realisations:p.engagements.filter((e:any) => (e.etat === EtatEngagement.VALIDE) || (e.etat === EtatEngagement.PAYE))?.reduce((acc:any,cur:any) => acc + cur.montant ,0),
-          } )));
+  
         }
     });
 
@@ -148,7 +126,23 @@ function Gestions() {
     };
     const headerC = renderHeaderC();
     const generateRapport = () => {
-        const totauxPI = PRODUIT_INVESTISSEMENT.reduce((acc:any,cur:any) => {
+        if(form.isValid()){
+        const {range} = form.values;
+        const PI =  data?.produits?.filter((d:any) => d.souscompte.compte_divisionnaire.compte.classe === CLASSE.PRODUIT_INVESTISSEMENT)
+        .map((p:any) => (
+            {compte:p.souscompte.code,
+            libelle: p.souscompte.libelle,
+            prevision: p.prevision,
+            virementp: 0,
+            virementm:0,
+            autorisations:0,
+            bd:p.prevision,
+            realisations: p.versements.filter((e:any) => ((e.etat === EtatEngagement.VALIDE) && isWithinInterval(parseISO(e?.date), {
+                start: range[0],
+                end: range[1]
+              })))?.reduce((acc:any,cur:any) => acc + cur.montant ,0),
+        } ));
+        const totauxPI =PI.reduce((acc:any,cur:any) => {
             acc.prevision += cur.prevision ;
             acc.virementp += cur.virementp ;
             acc.virementm += cur.virementm ;
@@ -169,7 +163,21 @@ function Gestions() {
             bd:0,
             realisations:0
         };
-        const totauxCI = CHARGE_INVESTISSEMENT.reduce((acc:any,cur:any) => {
+        const CI = data?.charges?.filter((d:any) => d.souscompte.compte_divisionnaire.compte.classe === CLASSE.CHARGE_INVESTISSEMENT)
+        .map((p:any) => (
+            {compte:p.souscompte.code,
+            libelle: p.souscompte.libelle,
+            prevision: p.prevision,
+            virementp: 0,
+            virementm:0,
+            autorisations:0,
+            bd:p.prevision,
+            realisations: p.engagements.filter((e:any) => (((e.etat === EtatEngagement.VALIDE) || (e.etat === EtatEngagement.PAYE)) && isWithinInterval(parseISO(e?.date), {
+                start: range[0],
+                end: range[1]
+              }))).reduce((acc:any,cur:any) => acc + cur.montant ,0),
+        } ));
+        const totauxCI = CI.reduce((acc:any,cur:any) => {
             acc.prevision += cur.prevision ;
             acc.virementp += cur.virementp ;
             acc.virementm += cur.virementm ;
@@ -190,7 +198,21 @@ function Gestions() {
             bd:0,
             realisations:0
         };
-        const totauxPF = PRODUIT_DE_FONCTIONNEMENT.reduce((acc:any,cur:any) => {
+        const PF = data?.produits?.filter((d:any) => d.souscompte.compte_divisionnaire.compte.classe === CLASSE.PRODUIT_DE_FONCTIONNEMENT)
+        .map((p:any) => (
+            {compte:p.souscompte.code,
+            libelle: p.souscompte.libelle,
+            prevision: p.prevision,
+            virementp: 0,
+            virementm:0,
+            autorisations:0,
+            bd:p.prevision,
+            realisations: p.versements.filter((e:any) => ((e.etat === EtatEngagement.VALIDE) && isWithinInterval(parseISO(e?.date), {
+                start: range[0],
+                end: range[1]
+              })))?.reduce((acc:any,cur:any) => acc + cur.montant ,0),
+        } ));
+        const totauxPF =  PF.reduce((acc:any,cur:any) => {
             acc.prevision += cur.prevision ;
             acc.virementp += cur.virementp ;
             acc.virementm += cur.virementm ;
@@ -211,7 +233,22 @@ function Gestions() {
             bd:0,
             realisations:0
         };
-        const totauxCF = CHARGE_DE_FONCTIONNEMENT.reduce((acc:any,cur:any) => {
+
+        const CF = data?.charges?.filter((d:any) => d.souscompte.compte_divisionnaire.compte.classe === CLASSE.CHARGE_DE_FONCTIONNEMENT)
+        .map((p:any) => (
+            {compte:p.souscompte.code,
+            libelle: p.souscompte.libelle,
+            prevision: p.prevision,
+            virementp: 0,
+            virementm:0,
+            autorisations:0,
+            bd:p.prevision,
+            realisations:p.engagements.filter((e:any) => (((e.etat === EtatEngagement.VALIDE) || (e.etat === EtatEngagement.PAYE)) && isWithinInterval(parseISO(e?.date), {
+                start: range[0],
+                end: range[1]
+              })))?.reduce((acc:any,cur:any) => acc + cur.montant ,0),
+        } ));
+        const totauxCF =  CF.reduce((acc:any,cur:any) => {
             acc.prevision += cur.prevision ;
             acc.virementp += cur.virementp ;
             acc.virementm += cur.virementm ;
@@ -232,7 +269,6 @@ function Gestions() {
             bd:0,
             realisations:0
         };
-
         const docDefinition:any = {
             pageOrientation:'landscape',
             styles: {
@@ -320,7 +356,7 @@ function Gestions() {
               table: {
                 widths: ['100%'],
                 body: [
-                  [ {text:`SITUATION D'EXECUTION DU ${format(new Date(),'dd MMMM yyyy',{locale:fr})}`,fontSize: 14,bold: true,color:'white',margin:[0,4]}],
+                  [ {text:`SITUATION D'EXECUTION DU ${format(range[0],'dd MMMM yyyy',{locale:fr})} AU ${format(range[1],'dd MMMM yyyy',{locale:fr})}`,fontSize: 14,bold: true,color:'white',margin:[0,4]}],
                 ]
               }
             },
@@ -345,7 +381,7 @@ function Gestions() {
                          {text:'RAR',style:'entete'},
                          {text:'sTaux(%)',style:'entete'}
                         ],
-                        ...PRODUIT_INVESTISSEMENT.map((p:any) => (
+                        ...PI.map((p:any) => (
                             [{text:`${p.compte}`,style:'info',alignment:'center'},
                              {text:`${formatNumber(p.libelle)}`,style:'info',alignment:'left'},
                              {text:`${formatNumber(p.prevision)}`,style:'info'},
@@ -370,7 +406,7 @@ function Gestions() {
                         {text:`${formatNumber(totauxPI.bd - totauxPI.realisations)}`,style:'total'},
                         {text:`${round(((totauxPI.realisations / totauxPI.bd)?? 0) * 100,2)}`,style:'total'},
                         ],
-                        ...CHARGE_INVESTISSEMENT.map((p:any) => (
+                        ...CI.map((p:any) => (
                             [{text:`${p.compte}`,style:'info',alignment:'center'},
                              {text:`${formatNumber(p.libelle)}`,style:'info', alignment: 'right'},
                              {text:`${formatNumber(p.prevision)}`,style:'info'},
@@ -395,7 +431,7 @@ function Gestions() {
                         {text:`${formatNumber(totauxCI.bd - totauxCI.realisations)}`,style:'total'},
                         {text:`${round(((totauxCI.realisations / totauxCI.bd) ?? 0) * 100,2)}`,style:'total'},
                         ],
-                        ...CHARGE_DE_FONCTIONNEMENT.map((p:any) => (
+                        ...CF.map((p:any) => (
                             [{text:`${p.compte}`,style:'info',alignment:'center'},
                              {text:`${formatNumber(p.libelle)}`,style:'info', alignment: 'right'},
                              {text:`${formatNumber(p.prevision)}`,style:'info'},
@@ -420,7 +456,7 @@ function Gestions() {
                         {text:`${formatNumber(totauxCF.bd - totauxCF.realisations)}`,style:'total'},
                         {text:`${round(((totauxCF.realisations / totauxCF.bd)?? 0) * 100,2)}`,style:'total'},
                         ],
-                        ...PRODUIT_DE_FONCTIONNEMENT.map((p:any) => (
+                        ...PF.map((p:any) => (
                             [{text:`${p.compte}`,style:'info',alignment:'center'},
                              {text:`${formatNumber(p.libelle)}`,style:'info', alignment: 'right'},
                              {text:`${formatNumber(p.prevision)}`,style:'info'},
@@ -452,6 +488,7 @@ function Gestions() {
           }
           
             pdfMake.createPdf(docDefinition).open();
+        }
     }
 
     const leftToolbarTemplateP = () => {
@@ -481,7 +518,7 @@ function Gestions() {
          overlayProps={{ radius: 'sm', blur: 2 }}
          loaderProps={{ color: 'blue', type: 'bars' }}
        />
-    <Button className="w-full mx-2 my-2" leftSection={<FaFileDownload />} onClick={generateRapport}>Telecharger le compte administratif à la date d'aujourdhui</Button>
+    <Button className="w-full mx-2 my-2" leftSection={<FaFileDownload />} onClick={showModal}>Telecharger le compte administratif</Button>
     <Toolbar left={leftToolbarTemplateP}></Toolbar>
    <DataTable value={PRODUITS} stripedRows paginator size="small" rows={10} filters={filtersP} header={headerP} rowsPerPageOptions={[5, 10, 25, 50]} loading={isLoading} tableStyle={{ minWidth: '50rem' }}
     globalFilterFields={['compte','libelle']} >
@@ -510,13 +547,13 @@ function Gestions() {
     globalFilterFields={['compte','libelle']} >
     <Column field="compte" header="CODE" style={{ width: '5%' }}></Column>
     <Column field="libelle" header="LIBELLE" style={{ width: '20%' }} ></Column>
-    <Column field="prevision" header="PREVISION" body={(row) => formatNumber(row.prevision)} style={{ width: '5%' }} pt={{
+    <Column field="prevision" header="PREVISION" sortable body={(row) => formatNumber(row.prevision)} style={{ width: '5%' }} pt={{
             bodyCell:{ className:"text-right"}
         }}></Column>
-    <Column field="virementp" header="Virement +" body={(row) => formatNumber(row.virementp)} style={{ width: '5%' }} pt={{
+    <Column field="virementp" sortable header="Virement +" body={(row) => formatNumber(row.virementp)} style={{ width: '5%' }} pt={{
             bodyCell:{ className:"text-right"}
         }}></Column>
-    <Column field="virementm" header="Virement -" body={(row) => formatNumber(row.virementm)} style={{ width: '5%' }} pt={{
+    <Column field="virementm" sortable header="Virement -" body={(row) => formatNumber(row.virementm)} style={{ width: '5%' }} pt={{
             bodyCell:{ className:"text-right"}
         }}></Column>
     <Column field="autorisations" header="AUTORISATIONS" style={{ width: '5%' }} pt={{
@@ -525,7 +562,7 @@ function Gestions() {
     <Column field="bd" header="MONTANT" body={(row) => formatNumber(row.bd)} style={{ width: '5%' }} pt={{
             bodyCell:{ className:"text-right"}
         }}></Column>
-    <Column field="realisations" header="ENGAGEMENTS" style={{ width: '5%' }} pt={{
+    <Column field="realisations" sortable header="ENGAGEMENTS" style={{ width: '5%' }} pt={{
             bodyCell:{ className:"text-right"}
         }}></Column>
     <Column field="solde" header="SOLDE"  body={soldeTemplate} style={{ width: '10%' }} pt={{
@@ -533,6 +570,17 @@ function Gestions() {
         }}></Column>
     <Column field="execution" header="EXECUTION" body={executionTemplate} style={{ width: '5%' }} ></Column>
 </DataTable>
+<Modal title="SITUATION EXECUTION" open={isModalOpen} okButtonProps={{className:"bg-blue-400"}} onOk={generateRapport} onCancel={handleCancel} zIndex={98}>
+        <form onSubmit={(e) => e.preventDefault()}>
+            <DatePickerInput
+          type="range"
+          label="LA PERIODE"
+          placeholder="choisisser la periode"
+         {...form.getInputProps('range')}
+         locale="fr"
+        />
+        </form>
+      </Modal>
     </>
   )
 }

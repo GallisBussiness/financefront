@@ -1,5 +1,5 @@
 import { Button, Paper, PasswordInput, TextInput, Title } from '@mantine/core';
-import React, {useLayoutEffect } from 'react';
+import React, {useEffect} from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { App } from 'antd';
 import { yupResolver } from 'mantine-form-yup-resolver';
@@ -23,11 +23,11 @@ const schema = yup.object().shape({
 });
 
 const SignIn: React.FC = () => {
-
   const navigate = useNavigate();
-  const isAuthenticated = useIsAuthenticated()
-  useLayoutEffect((): void => {
-    if(isAuthenticated()) {
+  const isAuthenticated = useIsAuthenticated();
+
+  useEffect((): void => {
+    if(isAuthenticated!) {
       navigate('/dashboard', { replace: true })
     }
     }, []);

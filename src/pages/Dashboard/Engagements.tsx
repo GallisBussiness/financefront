@@ -43,17 +43,6 @@ const schema = yup.object().shape({
   });
 
 
-  const StateMatch:any =  {
-    "BROUILLON" : {value:'Engagement Brouillon',color:'grey'},
-    "SOUMIS": {value:'Engagement soumis',color:'slate'},
-    "VALIDE":{value:'Engagement validé',color:'blue'},
-    "REJETE": {value:'Engagement rejeté',color:'red'},
-    "INVALIDE" :{value:'Engagement invalidé',color:'orange'},
-    "PAYE" :{value:'Engagement payé',color:'green'}
-  }
-
-
-
 function Engagements({data,etat}:{data:any;etat: string}) {
     const [opened, { open, close }] = useDisclosure(false);
     const [openedU, { open:openU, close:closeU }] = useDisclosure(false);
@@ -284,11 +273,11 @@ function Engagements({data,etat}:{data:any;etat: string}) {
    <Toolbar left={leftToolbarTemplate}></Toolbar>
    <DataTable value={data} paginator size="small" stripedRows rows={10} rowClassName={rowClass} filters={filters} rowsPerPageOptions={[5, 10, 25, 50]} tableStyle={{ minWidth: '50rem' }}
     globalFilterFields={['numero','montant','fournisseur.denomination','beneficiaire','credit.souscompte.code','credit.souscompte.libelle']} header={header} >
-     <Column field="numero" header="NUMERO" style={{ width: '15%' }}></Column>
+     <Column field="numero" sortable header="NUMERO" style={{ width: '15%' }}></Column>
      <Column field="date" header="DATE" body={dateTemplate} style={{ width: '5%' }}></Column>
-     <Column field="credit" header="IMPUTATION" body={creditTemplate} style={{ width: '30%' }}></Column>
-    <Column field="fournisseur.denomination" header="BENEFICIARE" body={benTemplate} style={{ width: '30%' }}></Column>
-    <Column field="montant" header="MONTANT" body={(row) => formatNumber(row.montant)} style={{ width: '15%' }} pt={{
+     <Column field="credit" sortable header="IMPUTATION" body={creditTemplate} style={{ width: '30%' }}></Column>
+    <Column field="fournisseur.denomination" sortable header="BENEFICIARE" body={benTemplate} style={{ width: '30%' }}></Column>
+    <Column field="montant" header="MONTANT" sortable body={(row) => formatNumber(row.montant)} style={{ width: '15%' }} pt={{
             bodyCell:{ className:"text-right"}
         }}></Column>
    <Column headerStyle={{ width: '4rem', textAlign: 'center' }} bodyStyle={{ textAlign: 'center', overflow: 'visible' }} body={actionBodyTemplate} />

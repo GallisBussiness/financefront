@@ -25,7 +25,7 @@
     "@mantine/hooks": "^7.5.3",
     "@mantine/modals": "^7.5.3",
     "@mantine/notifications": "^7.5.3",
-    "@mantine/nprogress": "^7.5.3",
+    "@mantine/nprogress": "^7.6.2",
     "antd": "^5.14.2",
     "apexcharts": "^3.41.0",
     "axios": "^1.6.7",
@@ -55,6 +55,7 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@types/date-fns": "^2.6.0",
     "@types/lodash": "^4.17.0",
     "@types/pdfmake": "^0.2.9",
     "@types/react": "^18.2.17",
